@@ -1,0 +1,587 @@
+   
+SYSTEM CALLS FOR APPLICATIONS
+   
+eax      = function number
+int 0x40 = sys call
+   
+   
+00 = DEFINE AND DRAW WINDOW
+   
+     ebx [x start]*65536 + [x size]
+     ecx [y start]*65536 + [y size]
+     edx body color     0xXYRRGGBB  if X=8 -> color glide
+                                    if Y=0 -> window type  I
+                                    if Y=1 -> reserve area, no draw
+                                    if Y=2 -> window type  II
+                                    if Y=3 -> skinned window,
+                                              closebutton id=1 added
+     esi grab bar color 0xXYRRGGBB  if X=8 -> negative color glide
+                                    if X=4 -> positive color glide
+                                    Y normally 0
+                                    if Y=1 -> Window cannot be moved by GUI
+     edi frame color    0x00RRGGBB
+     ret: nothing changed
+   
+   
+01 = PUTPIXEL
+   
+     ebx [x]
+     ecx [y]
+     edx pixel color 0x0XRRGGBB
+                        ^ 0 normal put, 1 negative
+     ret: nothing changed
+   
+   
+02 = GET KEY
+   
+     ret: al 0 successful -> ah = key
+          al 1 no key in buffer
+
+          See also function 66
+   
+   
+03 = GET SYSTEM CLOCK
+   
+     ret: eax 0x00SSMMHH sec,min,hour
+   
+   
+04 = WRITE TEXT TO WINDOW
+   
+     ebx [x start]*65536 + [y start]
+     ecx color         - 0x00RRGGBB
+         font (0 or 1) - 0xF0000000
+     edx pointer to text beginning
+     esi text length
+     ret: nothing changed
+   
+   
+05 = DELAY X/100 SECS
+   
+     ebx delay in 1/100 secs
+     ret: nothing changed
+   
+
+07 = PUTIMAGE
+   
+     ebx pointer to image in memory - RRGGBBRRGGBB..
+     ecx image size [x]*65536+[y]
+     edx image position in window [x]*65536+[y]
+     ret: eax 0 succesful, 1 overlapped
+   
+   
+08 = DEFINE BUTTON
+   
+     ebx [x start]*65536 + [x size]
+     ecx [y start]*65536 + [y size]
+     edx button id number (24 bits)
+     esi button color 0x 00 RR GG BB
+     ret: nothing changed
+   
+     ; if bit 31 is set in edx then function removes a button matching the id
+     ; note that function doesn't remove the button image to avoid
+     ; unnecessary flickering - when for example changing the colour
+   
+     ; if bit 30 is set in edx then button image is not drawn
+     
+     ; if bit 29 is set, the rectangle is not drawn when pressed
+   
+   
+   
+09 = PROCESS INFO
+   
+     ebx pointer to 1024 bytes table
+     ecx process number or -1 = who am I
+     ret: eax number of processes
+          table :  +00  dword   cpu usage
+                   +04   word   processes position in windowing stack
+                   +06   word   window stack value at ecx
+                   +10  12 db   name of the process
+                   +22  dword   start of processes memory
+                   +26  dword   memory used by process
+                   +30  dword   PID of the process
+                   +34  dword   window x start
+                   +38  dword   window y start
+                   +42  dword   window x size
+                   +46  dword   window y size
+                   +50   word   process slot state
+   
+   
+10 = WAIT FOR EVENT
+   
+     ret: eax event type, 1 window redraw, 2 key in buffer, 3 button pressed
+   
+   
+11 = CHECK FOR EVENT, NO WAIT
+   
+     ret: eax 0 no event, 1 window redraw, 2 key in buffer, 3 button pressed
+   
+   
+12 = WINDOW REDRAW STATUS
+   
+     ebx  1 start of redraw, 2 end of redraw
+     ret: nothing changed
+   
+   
+13 = DRAW BAR
+   
+     ebx [x start]*65536 + [x size]
+     ecx [y start]*65536 + [y size]
+     edx color 0x00RRGGBB
+     ret: nothing changed
+   
+   
+14 = GET SCREEN SIZE
+   
+     ret: eax [screen x max]*65536 + [screen y max]
+   
+   
+15 = BACKGROUND
+   
+     ebx 1 : set background size
+             ecx x size
+             edx y size
+     ebx 2 : write to background memory - max (0x100000-16)
+             ecx position in memory in bytes
+             edx color 0x00RRGGBB
+     ebx 3 : draw background
+     ebx 4 : type of background draw
+             ecx 1 - tile
+             ecx 2 - stretch
+     ebx 5 : blockmove image to os bgr memory
+             ecx - from
+             edx - to where in os bgr memory
+             esi - count of bytes to move
+
+
+16 = SAVE RAMDISK TO FLOPPY
+
+     ebx 1 : save all
+
+   
+17 = GET PRESSED BUTTON ID
+   
+     ret: al 0 successful -> ah  = id number (8 bits)
+               shr eax,8  -> eax = id number (24 bits)
+          al 1 no key in buffer
+   
+   
+18 = SYSTEM SERVICE
+   
+     ebx 1 - system boot
+     ebx 2 - force terminate , ecx process no
+     ebx 3 - activate window at process list ecx
+     ebx 4 - idle clock cycles / second
+     ebx 5 - time stamp counter / second - cpu speed
+   
+   
+20 = MIDI INTERFACE - MPU401
+   
+     ebx  1 - reset device
+     ebx  2 - cl midi data to output
+   
+   
+21 = SETUP FOR DEVICES
+   
+     ebx 1=roland mpu midi base , base io address
+     ebx 2=keyboard 1 base keymap  2 shift keymap (ecx pointer to keymap)
+                    9 country 1eng 2fi 3ger 4rus
+     ebx 3=cd base  1 pri.master  2 pri slave,
+                    3 sec master  4 sec slave
+     ebx 4=sb16 base, base io address
+     ebx 5=system language, 1eng 2fi 3ger 4rus
+     ebx 6=wss base, base io address
+     ebx 7=hd base, 1 pri.master  2 pri slave
+                    3 sec master  4 sec slave
+     ebx 8=fat32 partition in hd
+     ebx 10=sound dma channel in ecx
+   
+   
+23 = WAIT FOR EVENT WITH TIMEOUT
+   
+     ebx time to delay in hs
+     ret: eax event type: 0 no event, 1 window redraw,
+                          2 key in buffer, 3 button
+   
+   
+24 = CD AUDIO
+   
+     ebx 1 - play from ecx 00 FR SS MM
+     ebx 2 - get playlist size of ecx to [edx]
+     ebx 3 - stop/pause play
+   
+   
+25 = SB16 - MIXER I
+   
+     ebx 1 - set main volume cl [L]*16+[R]
+     ebx 2 - set cd   volume cl [L]*16+[R]
+   
+   
+26 = GET SETUP FOR DEVICES
+   
+     ebx 1=roland mpu midi base , base io address
+     ebx 2=keyboard 1 base keymap  2 shift keymap
+                    9 country 1eng 2fi 3ger 4rus
+     ebx 3=cd base  1 pri.master  2 pri slave,
+                    3 sec master  4 sec slave
+     ebx 4=sb16 base, base io address
+     ebx 5=system language, 1eng 2fi 3ger 4rus
+     ebx 6=wss base, base io address
+     ebx 7=hd base, 1 pri.master  2 pri slave
+                    3 sec master  4 sec slave
+     ebx 8=fat32 partition in hd
+     ebx 9=uptime in 1/100 sec -> eax
+     return value in eax
+   
+   
+27 = WINDOWS SOUND SYSTEM
+   
+     ebx 1 - set main volume to cl 0-255
+     ebx 2 - set cd   volume to cl 0-255
+   
+   
+28 = SB16 - MIXER II
+   
+     ebx 1 - set main volume to cl 0-255
+     ebx 2 - set cd   volume to cl 0-255
+   
+   
+29 = GET DATE
+   
+     ret: eax 0x00YYDDMM year date month
+   
+   
+32 = DELETE FILE FROM FLOPPY
+   
+     ebx  pointer to filename
+
+     ret: eax - 0 = successful, 1 = file not found
+   
+   
+35 = READ SCREEN PIXEL
+   
+     ebx = pixel count from top left of the screen
+   
+     return : eax = 0x00RRGGBB
+   
+   
+37 = READ MOUSE POSITION
+   
+     ebx=0 screen relative
+     ebx=1 window relative
+     ebx=2 buttons pressed
+     return in eax
+   
+   
+38 = DRAW LINE
+   
+     ebx  [x start] shl 16 + [x end]
+     ecx  [y start] shl 16 + [y end]
+     edx  colour 0x00RRGGBB
+   
+     return : nothing changed
+   
+   
+39 = GET BACKGROUND
+   
+     ebx=1 -> eax=[bgr x size] shl 16 + [bgr y size]
+     ebx=2
+       ecx= postition of backgrounds memorymap to return in eax
+     ebx=4 -> eax=1 tiled, eax=2 stretched
+   
+   
+40 = SET BITFIELD FOR WANTED EVENTS
+   
+     as default:
+     ebx = 00000000 00000000 00000000 00000111b  events:
+                                             I   window draw
+                                            I    key in buffer
+                                           I     button in buffer
+                                          I      (end request)
+                                         I       desktop background draw
+                                        I        mouse change
+                                       I         IPC event
+           I---------------I                     get irqs data
+   
+   
+41 = GET IRQ OWNER
+   
+     ebx : irq
+     ret : PID of the process
+   
+   
+42 = GET DATA READ BY IRQ
+   
+     ebx : IRQ number
+     ret :  eax  number of bytes in buffer
+             bl  data
+            ecx  0 = successful data read
+                 1 = no data in buffer
+                 2 = incorrect IRQ owner
+   
+   
+44 = PROGRAM IRQ's
+   
+     ebx : pointer to table
+     ecx : irq number
+   
+   
+45 = RESERVE/FREE IRQ
+   
+     ebx : 0 - reserve, 1 - free
+     ecx : IRQ number
+     ret : eax: 0 - successful, 1 - error
+   
+   
+46 = RESERVE/FREE PORT AREA
+   
+     ebx : 0 - reserve, 1 - free
+     ecx : port area start   ( min 256   )
+     edx : port area end     ( max 16383 )
+     ret : eax: 0 - successful, 1 - error
+
+     Direct access with in and out commands
+   
+   
+47 = DISPLAY NUMBER TO WINDOW
+   
+     ebx = print type, bl=0 -> ecx is number
+                       bl=1 -> ecx is pointer
+                       bh=0 -> display decimal
+                       bh=1 -> display hexadecimal
+                       bh=2 -> display binary
+           bits 16-21 = number of digits to display (0-32)
+           bits 22-31 = reserved
+     ecx = number or pointer
+     edx = x shl 16 + y
+     esi = color
+   
+   
+48 = DEFINE GENERAL WINDOW PROPERTIES
+   
+     ebx = 0      apply/redraw
+        ecx = 0 , apply/redraw desktop
+     ebx = 1      define button style
+        ecx = 0 , set flat buttons
+        ecx = 1 , set 3d buttons
+     ebx = 2      define window colors
+        ecx = pointer to table
+        edx = number of bytes defined
+     ebx = 3      get define window colors
+        ecx = pointer to table
+        edx = number of bytes to get
+     ebx = 4      get window skin height
+   
+   
+50 = FREE FORM WINDOW SHAPE AND SCALE
+   
+     ebx = 0 ; shape reference area
+       ecx = pointer to reference area
+             byte per pixel, 0 not used, 1=used, other = reserved
+     ebx = 1 ; scale of reference area (default 1:1)
+       ecx : scale is set to 2^ecx
+   
+     return: nothing changed
+   
+   
+51 = CREATE THREAD
+   
+     ebx = 1  ; create
+       ecx    ; = thread entry point
+       edx    ; = thread stack position
+   
+     ret: eax = pid or 0xfffffff0+ for error
+   
+   
+52 = STACK DRIVER STATUS
+   
+     - see stack.txt
+   
+   
+53 = SOCKET INTERFACE
+   
+     - see stack.txt
+   
+   
+55 = SOUND INTERFACE
+   
+     ebx = 0     ; load sound block
+       ecx =     ; pointer to (default size 65536 byte) soundblock
+   
+     ebx = 1     ; play (default 44 khz 8 bit mono) sound block
+
+     ebx = 2     ; set format
+       ecx = 1   ; set play block length
+         edx =   ; block length
+
+   
+57 = DELETE FILE FROM HD
+   
+     ebx   pointer to filename : 11 capital letters
+     edx   pointer to path : path db 0
+   
+   
+58 = SYSTEM TREE ACCESS
+   
+     ebx    pointer to fileinfo block
+   
+     path examples:
+   
+     '/RAMDISK/FIRST/KERNEL.ASM',0
+     '/RD/1/KERNEL.ASM',0
+   
+     '/HARDDISK/FIRST/KERNEL.ASM',0
+     '/HD/1/KERNEL.ASM',0
+     '/HARDDISK/FIRST/MENUET/PICS/TANZANIA.BMP',0
+   
+     fileinfo:
+   
+     dd   0                    ; 0=READ    (delete/append)
+     dd   0x0                  ; 512 block to read 0+
+     dd   0x1                  ; blocks to read (/bytes to write/append)
+     dd   0x20000              ; return data pointer
+     dd   0x10000              ; work area for os - 16384 bytes
+     db   '/RAMDISK/FIRST/KERNEL.ASM',0  ; ASCIIZ dir & filename
+
+     ret: eax = 0 - success, other - error code
+          ebx = size of file
+   
+     or
+   
+     fileinfo:
+   
+     dd   1                    ; 1=WRITE
+     dd   0x0                  ; not used
+     dd   10000                ; bytes to write
+     dd   0x20000              ; source data pointer
+     dd   0x10000              ; work area for os - 16384 bytes
+     db   '/RAMDISK/FIRST/KERNEL.ASM',0  ; ASCIIZ dir & filename
+
+     ret: eax = 0 - success, other - error code
+
+     or
+   
+     ; LBA
+   
+     fileinfo:
+   
+     dd   8                    ; 8=LBA read (/9=LBA write)
+     dd   0x0                  ; 512 block to read (write)
+     dd   0x1                  ; set to 1
+     dd   0x20000              ; return data pointer
+     dd   0x10000              ; work area for os (16384 bytes)
+     dd   '/HARDDISK/SECOND',0 ; physical device ; ASCIIZ
+
+          ( or /rd/1/ )
+
+          LBA read must be enabled with setup
+
+     NOTE: The asciiz in this context refers to the physical device and
+           not to logical one.
+           For hd: first=pri.master, second=pri.slave
+                   third=sec.master, fourth=sec.slave
+   
+     or
+   
+     fileinfo:
+   
+     dd   16                   ; 16=START APPLICATION
+     dd   0x0                  ; nop
+     dd   param                ; 0 or parameter area ( ASCIIZ )
+                               ; receiving application must
+                               ; reserve a 256 byte area
+     dd   0x0                  ; nop
+     dd   0x10000              ; work area for os - 16384 bytes
+     db   '/HD/1/MENUET/APPS/FIRE',0  ; ASCIIZ dir & filename
+   
+     ret: eax = pid or 0xfffffff0+ for error
+   
+   
+   
+   
+59 = TRACE FOR SYSTEM CALLS FROM PROCESSES
+   
+     ebx = 0   ; get system events
+       ecx     ; pointer to table  -> ; 64 bytes/system call descriptor
+                                      ; +00 PID
+                                      ; +32 EDI
+                                      ; +36 ESI
+                                      ; +40 EBP
+                                      ; +44 ESP
+                                      ; +48 EBX
+                                      ; +52 EDX
+                                      ; +56 ECX
+                                      ; +60 EAX
+   
+       edx     ; number of bytes to return to table (currently max 16*64)
+   
+     return:  eax = number of system calls from start
+                    latest call is saved to (eax mod 16)*64 in table
+              ebx = 0 : above format
+   
+   
+60 = INTER PROCESS COMMUNICATION
+   
+     ebx = 1 - define IPC memory
+     ebx = 2 - send message
+   
+   
+   
+61 = DIRECT GRAPHICS ACCESS
+   
+     ebx = 1 - get resolution          ->  eax [x] shl 16 + [y]
+     ebx = 2 - get bits per pixel      ->  eax
+     ebx = 3 - get bytes per scanline  ->  eax
+   
+     direct access with gs selector : mov [gs:0],dword 0xffffff
+   
+   
+62 = PCI ACCESS
+   
+     - see pci.txt
+   
+   
+63 = GENERAL DEBUG BOARD
+   
+     ebx = 1 write byte in cl
+     ebx = 2 read byte : ebx = 1 -> byte in al ; ebx = 0 -> no data
+
+
+64 = APPLICATION MEMORY RESIZE
+
+     ebx = 1 set amount of memory
+       ecx = new amount of memory
+
+       ret: eax = 0 - successfull
+            eax = 1 - out of memory
+
+
+65 = UTF
+
+
+66 = KEYBOARD DATA MODE
+
+     ebx = 1 set mode
+       ecx = 0 : keymap
+       ecx = 1 : scancodes
+     ebx = 2 get mode : return in eax
+     ebx = 3 get ctrl alt shift state : return in eax
+
+67 = Application Window Move or Resize
+     ebx = new x start
+     ecx = new y start
+     edx = new x size
+     esi = new y size
+     
+     Specify any parameters as -1 will leave that parameter unchanged.
+     eg specify ebx = -1 and ecx = -1 to simply resize the window, but 
+     not move it
+
+-1 = END APPLICATION
+   
+   
+   
+   
+   
+   
+   
+   
